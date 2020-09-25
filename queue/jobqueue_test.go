@@ -3,7 +3,7 @@ package queue
 import "testing"
 
 func TestQueuing(t *testing.T) {
-	queue := newJobQueue()
+	queue := newJobQueue(2)
 
 	job1 := newJob(1, 2, 60, []byte{'1', '2', '3'})
 	queue.addJob(job1)
