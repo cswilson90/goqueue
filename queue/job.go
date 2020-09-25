@@ -17,7 +17,6 @@ type job struct {
 
 	data []byte
 
-	queue       *jobQueue
 	nextJob     *job
 	previousJob *job
 }
@@ -68,65 +67,4 @@ func (j *job) refreshReservation() error {
 	j.reserveExpires = currentTime.Unix() + j.reservationTimeout
 
 	return nil
-}
-
-// setNextJob sets the next job in the queue after this one to be the given job.
-// Returns an error if job has not yet been assigned a queue.
-func (j *job) setNextJob(newJob *job) error {
-	if j.queue == nil {
-		return fmt.Errorf("Can't set next job for job %v as it isn't in a queue", j.id)
-	}
-
-	j.nextJob = newJob
-	if newJob != nil && !newJob.previousJobIs(j) {
-		return newJob.setPreviousJob(j)
-	}
-	return nil
-}
-
-// previousJobIs returns whether the given job matches the previous job in the queue.
-// Returns an error if job has not yet been assigned a queue.
-func (j *job) previousJobIs(job *job) bool {
-	if job == nil || j.previousJob == nil {
-		return false
-	}
-
-	return job.id == j.previousJob.id
-}
-
-// setPreviousJob sets the previous job in the queue before this one to be the given job.
-func (j *job) setPreviousJob(newJob *job) error {
-	if j.queue == nil {
-		return fmt.Errorf("Can't set previous job for job %v as it isn't in a queue", j.id)
-	}
-
-	j.previousJob = newJob
-	return nil
-}
-
-// removeFromQueue removes the job from the queue that it's currently in
-// Returns an error if job has not yet been assigned a queue.
-func (j *job) removeFromQueue() error {
-	if j.queue == nil {
-		return fmt.Errorf("Can't remove job %v from queue as it isn't in a queue", j.id)
-	}
-
-	if j.previousJob != nil {
-		j.previousJob.setNextJob(j.nextJob)
-		if j.nextJob == nil {
-			j.queue.setFinalJob(j.previousJob)
-		}
-	} else {
-		j.queue.setFirstJob(j.nextJob)
-	}
-
-	j.previousJob = nil
-	j.nextJob = nil
-	j.queue = nil
-	return nil
-}
-
-// setQueue sets the queue the job is in.
-func (j *job) setQueue(queue *jobQueue) {
-	j.queue = queue
 }
