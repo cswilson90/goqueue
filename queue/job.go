@@ -7,12 +7,13 @@ import (
 
 // A Job holds all the data for a single job in the queue
 type job struct {
-	id       uint64
-	priority uint
+	id        uint64
+	priority  uint
+	queueName string
 
 	status string
 
-	reservationTimeout int64
+	reservationTimeout int
 	reserveExpires     int64
 
 	data []byte
@@ -22,10 +23,11 @@ type job struct {
 }
 
 // NewJob creates and returns a new Job with the given data.
-func newJob(id uint64, priority uint, reservationTimeout int64, data []byte) *job {
+func newJob(id uint64, queue string, priority uint, reservationTimeout int, data []byte) *job {
 	return &job{
 		id:                 id,
 		priority:           priority,
+		queueName:          queue,
 		status:             "ready",
 		reservationTimeout: reservationTimeout,
 		data:               data,
@@ -64,7 +66,7 @@ func (j *job) refreshReservation() error {
 	}
 
 	currentTime := time.Now()
-	j.reserveExpires = currentTime.Unix() + j.reservationTimeout
+	j.reserveExpires = currentTime.Unix() + int64(j.reservationTimeout)
 
 	return nil
 }

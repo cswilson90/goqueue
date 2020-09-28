@@ -5,7 +5,7 @@ import "testing"
 func TestQueuing(t *testing.T) {
 	queue := newJobQueue(2)
 
-	job1 := newJob(1, 2, 60, []byte{'1', '2', '3'})
+	job1 := newJob(1, "queue1", 2, 60, []byte{'1', '2', '3'})
 	queue.addJob(job1)
 
 	nextJob := queue.getNextJob()
@@ -14,8 +14,8 @@ func TestQueuing(t *testing.T) {
 	}
 
 	// Checking adding multiple jobs and reading them off in order
-	job2 := newJob(2, 2, 60, []byte{'2', '3', '4'})
-	job3 := newJob(3, 2, 60, []byte{'3', '4', '5'})
+	job2 := newJob(2, "queue1", 2, 60, []byte{'2', '3', '4'})
+	job3 := newJob(3, "queue1", 2, 60, []byte{'3', '4', '5'})
 
 	jobs := [3]*job{job1, job2, job3}
 	for _, job := range jobs {

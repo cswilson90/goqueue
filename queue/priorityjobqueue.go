@@ -41,13 +41,13 @@ func (p *priorityJobQueue) addJob(job *job) {
 	statusQueue.addJob(job)
 }
 
-// nextReadyJob gets the next ready job in the queue.
-// Returns nil if there is no job that can be reserved.
-func (p *priorityJobQueue) reserveJob() *job {
+// reserveJob gets the next ready job in the queue and reserves it.
+// Second returned value is false if there is no job that can be reserved.
+func (p *priorityJobQueue) reserveJob() (*job, bool) {
 	statusQueue := p.statusQueues["ready"]
 
 	if statusQueue == nil {
-		return nil
+		return nil, false
 	}
 
 	reservedJob := statusQueue.getNextJob()
@@ -57,7 +57,8 @@ func (p *priorityJobQueue) reserveJob() *job {
 		if err != nil {
 			log.Fatalf("Failed to reserve job %v from ready queue: %v\n", reservedJob.id, err.Error())
 		}
+		return reservedJob, true
 	}
 
-	return reservedJob
+	return nil, false
 }

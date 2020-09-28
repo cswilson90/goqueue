@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewJob(t *testing.T) {
-	job := newJob(1, 2, 60, []byte{'2', '3', '4'})
+	job := newJob(1, "queue1", 2, 60, []byte{'2', '3', '4'})
 
 	if job.id != 1 {
 		t.Errorf("New Job ID expected to be 1, got: %v", job.id)
@@ -31,7 +31,7 @@ func TestNewJob(t *testing.T) {
 }
 
 func TestReservation(t *testing.T) {
-	job := newJob(1, 2, 60, []byte{'2', '3', '4'})
+	job := newJob(1, "queue1", 2, 60, []byte{'2', '3', '4'})
 
 	if job.reserved() {
 		t.Error("Newly created Job is reserved")

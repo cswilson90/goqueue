@@ -5,20 +5,23 @@ import "testing"
 func TestPriorityQueuing(t *testing.T) {
 	queue := newPriorityJobQueue()
 
-	nilJob := queue.reserveJob()
-	if nilJob != nil {
+	_, ok := queue.reserveJob()
+	if ok {
 		t.Error("Expected nil when trying to reserve job from new empty queue")
 	}
 
 	jobPriorites := [6]uint{2, 1, 4, 1, 2, 3}
 	for i, pri := range jobPriorites {
-		newJob := newJob(uint64(i+1), pri, 60, []byte{'1', '2', '3'})
+		newJob := newJob(uint64(i+1), "queue1", pri, 60, []byte{'1', '2', '3'})
 		queue.addJob(newJob)
 	}
 
 	expectedJobs := [6]uint64{2, 4, 1, 5, 6, 3}
 	for _, expectedID := range expectedJobs {
-		nextJob := queue.reserveJob()
+		nextJob, ok := queue.reserveJob()
+		if !ok {
+			t.Errorf("Failed to reserve job, expected job %v", expectedID)
+		}
 		if nextJob.id != expectedID {
 			t.Errorf("Reserved job %v, expected %v", nextJob.id, expectedID)
 		}
@@ -28,8 +31,8 @@ func TestPriorityQueuing(t *testing.T) {
 		}
 	}
 
-	nilJob = queue.reserveJob()
-	if nilJob != nil {
+	_, ok = queue.reserveJob()
+	if ok {
 		t.Error("Expected nil when trying to reserve job from empty queue")
 	}
 }
