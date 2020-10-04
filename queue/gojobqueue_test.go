@@ -24,9 +24,9 @@ func TestSingleGoQueueJob(t *testing.T) {
 	goJobQueue := NewGoJobQueue()
 
 	job1 := &GoJobData{
+		Data:     []byte{'2', '3', '4'},
 		Priority: 5,
 		Timeout:  60,
-		Data:     []byte{'2', '3', '4'},
 	}
 
 	err := goJobQueue.AddJob(job1)
@@ -61,6 +61,18 @@ func TestSingleGoQueueJob(t *testing.T) {
 	if !cmp.Equal(job1Reserved.Data, job1.Data) {
 		t.Errorf("Reserved job has different data to expected")
 	}
+	if job1Reserved.Status != "reserved" {
+		t.Errorf("Reserved job does not have 'reserved' status")
+	}
+
+	err = goJobQueue.DeleteJob(job1Reserved.Id)
+	if err != nil {
+		t.Errorf("Error deleting job 1: " + err.Error())
+	}
+	_, ok = goJobQueue.GetJobData(1)
+	if ok {
+		t.Errorf("Got job data for deleted job 1")
+	}
 
 	_, ok = goJobQueue.ReserveJob("queue1")
 	if ok {
@@ -68,6 +80,88 @@ func TestSingleGoQueueJob(t *testing.T) {
 	}
 }
 
-func TestMultipleNamedGoQueues(t *testing.T) {
-	// TODO
+func TestMultipleGoQueueJobs(t *testing.T) {
+	goJobQueue := NewGoJobQueue()
+
+	jobPriorites := [6]uint{2, 1, 4, 1, 2, 3}
+	for i, pri := range jobPriorites {
+		newJob := &GoJobData{
+			Data:     []byte{'2', '3', '4'},
+			Priority: pri,
+			Queue:    "queue1",
+			Timeout:  60,
+		}
+		err := goJobQueue.AddJob(newJob)
+		if err != nil {
+			t.Errorf("Error queuing job %v: "+err.Error(), i)
+		}
+	}
+
+	job4Data, ok := goJobQueue.GetJobData(4)
+	if !ok {
+		t.Errorf("Failed to get job data for job 4")
+	}
+	if job4Data.Id != 4 {
+		t.Errorf("Tried to get job data for job 4 but got job %v", job4Data.Id)
+	}
+
+	expectedJobs := [6]uint64{2, 4, 1, 5, 6, 3}
+	for _, expectedID := range expectedJobs {
+		nextJob, ok := goJobQueue.ReserveJob("queue1")
+		if !ok {
+			t.Errorf("Failed to reserve job, expected job %v", expectedID)
+		}
+		if nextJob.Id != expectedID {
+			t.Errorf("Reserved job %v, expected %v", nextJob.Id, expectedID)
+		}
+
+		if nextJob.Status != "reserved" {
+			t.Errorf("Job %v status %v when it should be 'reserved'", nextJob.Id, nextJob.Status)
+		}
+	}
+}
+
+func TestMultipleGoQueueQueues(t *testing.T) {
+	goJobQueue := NewGoJobQueue()
+
+	jobPriorites := [6]uint{2, 1, 1, 4, 2, 3}
+	for i, pri := range jobPriorites {
+		// Alternate queue names
+		queueName := "queue1"
+		if i%2 == 0 {
+			queueName = "queue2"
+		}
+
+		newJob := &GoJobData{
+			Data:     []byte{'2', '3', '4'},
+			Priority: pri,
+			Queue:    queueName,
+			Timeout:  60,
+		}
+		err := goJobQueue.AddJob(newJob)
+		if err != nil {
+			t.Errorf("Error queuing job %v: "+err.Error(), i)
+		}
+	}
+
+	expectedJobs := [6]uint64{3, 2, 1, 6, 5, 4}
+	for i, expectedID := range expectedJobs {
+		// Alternate queue names
+		queueName := "queue1"
+		if i%2 == 0 {
+			queueName = "queue2"
+		}
+
+		nextJob, ok := goJobQueue.ReserveJob(queueName)
+		if !ok {
+			t.Errorf("Failed to reserve job, expected job %v", expectedID)
+		}
+		if nextJob.Id != expectedID {
+			t.Errorf("Reserved job %v, expected %v", nextJob.Id, expectedID)
+		}
+
+		if nextJob.Status != "reserved" {
+			t.Errorf("Job %v status %v when it should be 'reserved'", nextJob.Id, nextJob.Status)
+		}
+	}
 }

@@ -11,7 +11,8 @@ type job struct {
 	priority  uint
 	queueName string
 
-	status string
+	status  string
+	deleted bool
 
 	reservationTimeout int
 	reserveExpires     int64
@@ -29,6 +30,7 @@ func newJob(id uint64, queue string, priority uint, reservationTimeout int, data
 		priority:           priority,
 		queueName:          queue,
 		status:             "ready",
+		deleted:            false,
 		reservationTimeout: reservationTimeout,
 		data:               data,
 	}
@@ -47,6 +49,10 @@ func (j *job) reserve() error {
 		return fmt.Errorf("Job %v is already reserved", j.id)
 	}
 
+	if j.deleted {
+		return fmt.Errorf("Job %v has been deleted", j.id)
+	}
+
 	oldStatus := j.status
 	j.status = "reserved"
 	err := j.refreshReservation()
@@ -63,6 +69,10 @@ func (j *job) reserve() error {
 func (j *job) refreshReservation() error {
 	if !j.reserved() {
 		return fmt.Errorf("Job %v is not reserved", j.id)
+	}
+
+	if j.deleted {
+		return fmt.Errorf("Job %v has been deleted", j.id)
 	}
 
 	currentTime := time.Now()

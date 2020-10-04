@@ -25,19 +25,18 @@ func (p *priorityJobQueue) getStatusQueue(job *job) *jobQueue {
 		log.Fatalf("Job %v has unknown status: %v\n", job.id, job.status)
 	}
 
+	if queue == nil {
+		// No queue yet made for the status so initialise one
+		p.statusQueues[job.status] = newJobQueue(job.priority)
+		return p.statusQueues[job.status]
+	}
+
 	return queue
 }
 
 // addJob adds the given job to the queue.
 func (p *priorityJobQueue) addJob(job *job) {
 	statusQueue := p.getStatusQueue(job)
-
-	if statusQueue == nil {
-		// No queue yet made for the status so initialise one
-		p.statusQueues[job.status] = newJobQueue(job.priority)
-		statusQueue = p.statusQueues[job.status]
-	}
-
 	statusQueue.addJob(job)
 }
 
@@ -50,15 +49,23 @@ func (p *priorityJobQueue) reserveJob() (*job, bool) {
 		return nil, false
 	}
 
-	reservedJob := statusQueue.getNextJob()
+	reservedJob, ok := statusQueue.getNextJob()
 
-	if reservedJob != nil {
+	if ok {
 		err := reservedJob.reserve()
 		if err != nil {
 			log.Fatalf("Failed to reserve job %v from ready queue: %v\n", reservedJob.id, err.Error())
 		}
+		newQueue := p.getStatusQueue(reservedJob)
+		newQueue.addJob(reservedJob)
 		return reservedJob, true
 	}
 
 	return nil, false
+}
+
+// deleteJob deletes the given job from the queue
+func (p *priorityJobQueue) deleteJob(job *job) {
+	statusQueue := p.getStatusQueue(job)
+	statusQueue.deleteJob(job)
 }

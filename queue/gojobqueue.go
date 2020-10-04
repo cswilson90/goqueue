@@ -12,11 +12,12 @@ type GoJobQueue struct {
 
 // A GoJobData object represents the data for a single job in a GoJobQueue.
 type GoJobData struct {
+	Data     []byte
 	Id       uint64
 	Priority uint
 	Queue    string
+	Status   string
 	Timeout  int
-	Data     []byte
 }
 
 // NewGoJobQueue creates a new GoJobQueue.
@@ -45,11 +46,7 @@ func (q *GoJobQueue) AddJob(jobData *GoJobData) error {
 	jobData.Id = newJob.id
 	q.nextJobID++
 
-	queue, ok := q.queues[jobData.Queue]
-	if !ok {
-		q.queues[jobData.Queue] = newPriorityJobQueue()
-		queue = q.queues[jobData.Queue]
-	}
+	queue := q.priorityQueue(jobData.Queue)
 
 	queue.addJob(newJob)
 	q.jobs[newJob.id] = newJob
@@ -84,13 +81,44 @@ func (q *GoJobQueue) ReserveJob(queueName string) (*GoJobData, bool) {
 	return internalJobToData(internalJob), true
 }
 
+// DeleteJob deletes the job with the given ID.
+// Returns an error if the job doesn't exist.
+func (q *GoJobQueue) DeleteJob(id uint64) error {
+	job, ok := q.jobs[id]
+	if !ok {
+		return fmt.Errorf("Can't delete job with ID %v: job doesn't exist", id)
+	}
+	if job.deleted {
+		return fmt.Errorf("Job %v already deleted", id)
+	}
+
+	queue := q.priorityQueue(job.queueName)
+	queue.deleteJob(job)
+	delete(q.jobs, id)
+
+	return nil
+}
+
+// jobsQueue returns the priorityJobQueue object that the given job is in.
+// Teh queue will be created if it doesn't exist.
+func (q *GoJobQueue) priorityQueue(queueName string) *priorityJobQueue {
+	queue, ok := q.queues[queueName]
+	if !ok {
+		q.queues[queueName] = newPriorityJobQueue()
+		queue = q.queues[queueName]
+	}
+
+	return queue
+}
+
 // internalJobToData converts an internal job to GoJobData representation
 func internalJobToData(job *job) *GoJobData {
 	return &GoJobData{
+		Data:     job.data,
 		Id:       job.id,
 		Priority: job.priority,
 		Queue:    job.queueName,
+		Status:   job.status,
 		Timeout:  job.reservationTimeout,
-		Data:     job.data,
 	}
 }
