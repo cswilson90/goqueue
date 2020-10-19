@@ -1,13 +1,20 @@
 package queue
 
-import "fmt"
+import (
+	"fmt"
+	"sync"
+)
 
 // A GoJobQueue manages a group of named priority queues.
 type GoJobQueue struct {
-	queues map[string]*priorityJobQueue
+	// queueMutex protects the queues map
+	queueMutex sync.Mutex
+	queues     map[string]*priorityJobQueue
 
-	nextJobID uint64
-	jobs      map[uint64]*job
+	// jobIdMutex protects nextJobID
+	jobIdMutex sync.Mutex
+	nextJobID  uint64
+	jobs       map[uint64]*job
 }
 
 // A GoJobData object represents the data for a single job in a GoJobQueue.
@@ -42,9 +49,8 @@ func (q *GoJobQueue) AddJob(jobData *GoJobData) error {
 		return fmt.Errorf("Tried to add job to a queue with no name")
 	}
 
-	newJob := newJob(q.nextJobID, jobData.Queue, jobData.Priority, jobData.Timeout, jobData.Data)
+	newJob := newJob(q.getNextJobId(), jobData.Queue, jobData.Priority, jobData.Timeout, jobData.Data)
 	jobData.Id = newJob.id
-	q.nextJobID++
 
 	queue := q.priorityQueue(jobData.Queue)
 
@@ -92,8 +98,7 @@ func (q *GoJobQueue) DeleteJob(id uint64) error {
 		return fmt.Errorf("Job %v already deleted", id)
 	}
 
-	queue := q.priorityQueue(job.queueName)
-	queue.deleteJob(job)
+	job.deleted = true
 	delete(q.jobs, id)
 
 	return nil
@@ -102,13 +107,24 @@ func (q *GoJobQueue) DeleteJob(id uint64) error {
 // jobsQueue returns the priorityJobQueue object that the given job is in.
 // Teh queue will be created if it doesn't exist.
 func (q *GoJobQueue) priorityQueue(queueName string) *priorityJobQueue {
+	q.queueMutex.Lock()
 	queue, ok := q.queues[queueName]
 	if !ok {
 		q.queues[queueName] = newPriorityJobQueue()
 		queue = q.queues[queueName]
 	}
 
+	q.queueMutex.Unlock()
 	return queue
+}
+
+// getNextJobId returns the next free job ID and increments the counter.
+func (q *GoJobQueue) getNextJobId() uint64 {
+	q.jobIdMutex.Lock()
+	nextID := q.nextJobID
+	q.nextJobID++
+	q.jobIdMutex.Unlock()
+	return nextID
 }
 
 // internalJobToData converts an internal job to GoJobData representation

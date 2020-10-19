@@ -1,9 +1,14 @@
 package queue
 
-import "log"
+import (
+	"log"
+	"sync"
+)
 
 // priorityJobQueue is a priority queue of jobs
 type priorityJobQueue struct {
+	// queueMutex protects the statusQueues map
+	queueMutex   sync.Mutex
 	statusQueues map[string]*jobQueue
 }
 
@@ -20,6 +25,7 @@ func newPriorityJobQueue() *priorityJobQueue {
 
 // getStatusQueue gets the correct job queue for the current status of the job.
 func (p *priorityJobQueue) getStatusQueue(job *job) *jobQueue {
+	p.queueMutex.Lock()
 	queue, ok := p.statusQueues[job.status]
 	if !ok {
 		log.Fatalf("Job %v has unknown status: %v\n", job.id, job.status)
@@ -28,9 +34,10 @@ func (p *priorityJobQueue) getStatusQueue(job *job) *jobQueue {
 	if queue == nil {
 		// No queue yet made for the status so initialise one
 		p.statusQueues[job.status] = newJobQueue(job.priority)
-		return p.statusQueues[job.status]
+		queue = p.statusQueues[job.status]
 	}
 
+	p.queueMutex.Unlock()
 	return queue
 }
 
@@ -49,12 +56,16 @@ func (p *priorityJobQueue) reserveJob() (*job, bool) {
 		return nil, false
 	}
 
-	reservedJob, ok := statusQueue.getNextJob()
-
-	if ok {
+	for reservedJob, ok := statusQueue.getNextJob(); ok; {
 		err := reservedJob.reserve()
 		if err != nil {
-			log.Fatalf("Failed to reserve job %v from ready queue: %v\n", reservedJob.id, err.Error())
+			if _, ok := err.(deletedJobError); ok {
+				// If job has been deleted try and reserve another
+				reservedJob, ok = statusQueue.getNextJob()
+				continue
+			} else {
+				log.Fatalf("Failed to reserve job %v from ready queue: %v\n", reservedJob.id, err.Error())
+			}
 		}
 		newQueue := p.getStatusQueue(reservedJob)
 		newQueue.addJob(reservedJob)
@@ -62,10 +73,4 @@ func (p *priorityJobQueue) reserveJob() (*job, bool) {
 	}
 
 	return nil, false
-}
-
-// deleteJob deletes the given job from the queue
-func (p *priorityJobQueue) deleteJob(job *job) {
-	statusQueue := p.getStatusQueue(job)
-	statusQueue.deleteJob(job)
 }
