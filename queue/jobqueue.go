@@ -2,21 +2,14 @@ package queue
 
 import "log"
 
-import "sync"
-
 // A jobQueue is a single non-priorty queue of Jobs.
 type jobQueue struct {
-	// jobMutex protects firstJob and lastJob and should be locked when adding or
-	// removing jobs from the queue
-	jobMutex sync.Mutex
 	firstJob *job
 	lastJob  *job
 
 	// Queues are organised in a binary tree by priority
 	priority uint
 
-	// queueMutex protects leftQueue and rightQueue
-	queueMutex sync.Mutex
 	leftQueue  *jobQueue
 	rightQueue *jobQueue
 }
@@ -34,25 +27,20 @@ func (q *jobQueue) addJob(job *job) {
 	// If the job priority does not match this queue pass it on to the next
 	// queue which is created if necessary
 	if job.priority < q.priority {
-		q.queueMutex.Lock()
 		if q.leftQueue == nil {
 			q.leftQueue = newJobQueue(job.priority)
 		}
-		q.queueMutex.Unlock()
 		q.leftQueue.addJob(job)
 		return
 	} else if job.priority > q.priority {
-		q.queueMutex.Lock()
 		if q.rightQueue == nil {
 			q.rightQueue = newJobQueue(job.priority)
 		}
-		q.queueMutex.Unlock()
 		q.rightQueue.addJob(job)
 		return
 	}
 
 	// Job priority matches this queue so add it here
-	q.jobMutex.Lock()
 	if q.firstJob == nil {
 		q.firstJob = job
 	} else {
@@ -61,7 +49,6 @@ func (q *jobQueue) addJob(job *job) {
 	}
 
 	q.lastJob = job
-	q.jobMutex.Unlock()
 }
 
 // getNextJob gets the next job in the queue, removes it from the queue and returns it.
@@ -74,9 +61,6 @@ func (q *jobQueue) getNextJob() (*job, bool) {
 			return higherPriJob, true
 		}
 	}
-
-	q.jobMutex.Lock()
-	defer q.jobMutex.Unlock()
 
 	nextJob := q.firstJob
 
@@ -102,9 +86,24 @@ func (q *jobQueue) getNextJob() (*job, bool) {
 
 // removeJob removes the given job from this queue.
 func (q *jobQueue) removeJob(job *job) {
+	// Find the correct priority queue to delete from
+	if job.priority < q.priority {
+		if q.leftQueue == nil {
+			log.Fatalf("Error deleting job %v: job not found in queue", job.id)
+		}
+		q.leftQueue.removeJob(job)
+		return
+	} else if job.priority > q.priority {
+		if q.rightQueue == nil {
+			log.Fatalf("Error deleting job %v: job not found in queue", job.id)
+		}
+		q.rightQueue.removeJob(job)
+		return
+	}
+
 	// Matches this queues priority so delete
 	if q.firstJob == nil {
-		log.Fatalf("Error deleting job %v: job queue is empty", job.id)
+		log.Fatalf("Error deleting job %v: job not found in queue", job.id)
 	}
 
 	if q.firstJob.id == job.id {
@@ -123,7 +122,7 @@ func (q *jobQueue) removeJob(job *job) {
 		}
 	} else {
 		if job.nextJob == nil || job.previousJob == nil {
-			log.Fatalf("Error deleting job %v: job missing pointer but not first or last job in queue", job.id)
+			log.Fatalf("Error deleting job %v: job missing pointer but not first or last job in queue. First job: %v, last job %v", job.id, q.firstJob.id, q.lastJob.id)
 		}
 
 		job.previousJob.nextJob = job.nextJob

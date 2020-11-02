@@ -35,3 +35,20 @@ func TestQueuing(t *testing.T) {
 		}
 	}
 }
+
+func TestRemovingJobs(t *testing.T) {
+	queue := newJobQueue(2)
+
+	jobs := make([]*job, 0, 20)
+	for i := 1; i <= 20; i++ {
+		newJob := newJob(uint64(i), "queue1", uint(i % 3), 60, []byte{'1', '2', '3'})
+		jobs = append(jobs, newJob)
+		queue.addJob(newJob)
+	}
+
+	// order was randomly selected
+	deleteOrder := [20]int{0, 3, 1, 12, 13, 4, 6, 17, 8, 7, 10, 18, 19, 5, 14, 2, 15, 16, 9, 11}
+	for _, jobIndex := range deleteOrder {
+		queue.removeJob(jobs[jobIndex])
+	}
+}
