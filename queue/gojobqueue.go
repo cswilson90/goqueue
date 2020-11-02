@@ -15,6 +15,9 @@ type GoJobQueue struct {
 	jobIdMutex sync.Mutex
 	nextJobID  uint64
 	jobs       map[uint64]*job
+
+	// deleteMutex protects deleting jobs
+	deleteMutex sync.Mutex
 }
 
 // A GoJobData object represents the data for a single job in a GoJobQueue.
@@ -90,16 +93,20 @@ func (q *GoJobQueue) ReserveJob(queueName string) (*GoJobData, bool) {
 // DeleteJob deletes the job with the given ID.
 // Returns an error if the job doesn't exist.
 func (q *GoJobQueue) DeleteJob(id uint64) error {
+	q.deleteMutex.Lock()
+
 	job, ok := q.jobs[id]
 	if !ok {
+		q.deleteMutex.Unlock()
 		return fmt.Errorf("Can't delete job with ID %v: job doesn't exist", id)
 	}
-	if job.deleted {
-		return fmt.Errorf("Job %v already deleted", id)
-	}
-
-	job.deleted = true
 	delete(q.jobs, id)
+	q.deleteMutex.Unlock()
+
+	queue, ok := q.queues[job.queueName]
+	if ok {
+		queue.deleteJob(job)
+	}
 
 	return nil
 }

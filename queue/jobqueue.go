@@ -80,12 +80,6 @@ func (q *jobQueue) getNextJob() (*job, bool) {
 
 	nextJob := q.firstJob
 
-	// Check if job has been deleted and remove from queue if so
-	for nextJob != nil && nextJob.deleted {
-		q.removeJob(nextJob)
-		nextJob = q.firstJob
-	}
-
 	// If no jobs in this queue check lower priority queues
 	if nextJob == nil {
 		if q.rightQueue == nil {
