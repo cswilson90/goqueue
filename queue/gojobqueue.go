@@ -14,10 +14,10 @@ type GoJobQueue struct {
 	// jobIdMutex protects nextJobID
 	jobIdMutex sync.Mutex
 	nextJobID  uint64
-	jobs       map[uint64]*job
 
-	// deleteMutex protects deleting jobs
-	deleteMutex sync.Mutex
+	// jobsMutex protects the jobs map
+	jobsMutex sync.Mutex
+	jobs      map[uint64]*job
 }
 
 // A GoJobData object represents the data for a single job in a GoJobQueue.
@@ -58,7 +58,10 @@ func (q *GoJobQueue) AddJob(jobData *GoJobData) error {
 	queue := q.priorityQueue(jobData.Queue)
 
 	queue.addJob(newJob)
+
+	q.jobsMutex.Lock()
 	q.jobs[newJob.id] = newJob
+	q.jobsMutex.Unlock()
 
 	return nil
 }
@@ -93,15 +96,15 @@ func (q *GoJobQueue) ReserveJob(queueName string) (*GoJobData, bool) {
 // DeleteJob deletes the job with the given ID.
 // Returns an error if the job doesn't exist.
 func (q *GoJobQueue) DeleteJob(id uint64) error {
-	q.deleteMutex.Lock()
+	q.jobsMutex.Lock()
 
 	job, ok := q.jobs[id]
 	if !ok {
-		q.deleteMutex.Unlock()
+		q.jobsMutex.Unlock()
 		return fmt.Errorf("Can't delete job with ID %v: job doesn't exist", id)
 	}
 	delete(q.jobs, id)
-	q.deleteMutex.Unlock()
+	q.jobsMutex.Unlock()
 
 	queue, ok := q.queues[job.queueName]
 	if ok {
@@ -109,6 +112,11 @@ func (q *GoJobQueue) DeleteJob(id uint64) error {
 	}
 
 	return nil
+}
+
+// NumJobs returns the total number of jobs in all queues.
+func (q *GoJobQueue) NumJobs() int {
+	return len(q.jobs)
 }
 
 // jobsQueue returns the priorityJobQueue object that the given job is in.

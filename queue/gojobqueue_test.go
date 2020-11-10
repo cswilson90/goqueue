@@ -2,6 +2,7 @@ package queue
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -164,4 +165,80 @@ func TestMultipleGoQueueQueues(t *testing.T) {
 			t.Errorf("Job %v status %v when it should be 'reserved'", nextJob.Id, nextJob.Status)
 		}
 	}
+}
+
+func TestConcurrentGoQueue(t *testing.T) {
+	goJobQueue := NewGoJobQueue()
+
+	finished := make(chan bool)
+
+	// Implement timeout
+	timeout := make(chan bool)
+	go func() {
+		time.Sleep(5 * time.Second)
+		timeout <- true
+	}()
+
+	// Concurrently add and reserve/delete 20 jobs
+	go queueTestJobs(t, goJobQueue, "queue1", 5, finished)
+	go queueTestJobs(t, goJobQueue, "queue2", 5, finished)
+	go queueTestJobs(t, goJobQueue, "queue1", 5, finished)
+	go queueTestJobs(t, goJobQueue, "queue2", 5, finished)
+	go reserveTestJobs(t, goJobQueue, "queue1", 10, finished)
+	go reserveTestJobs(t, goJobQueue, "queue2", 10, finished)
+
+	// Wait for all goroutines to finish
+	for i := 0; i < 6; i++ {
+		switch {
+		case <-finished:
+			continue
+		case <-timeout:
+			t.Errorf("Timeout on concurrent adding and reserving")
+			break
+		}
+	}
+
+	// Check there are no jobs left in the queue
+	numJobs := goJobQueue.NumJobs()
+	if numJobs != 0 {
+		t.Errorf("%v jobs left in queue when all should be deleted", numJobs)
+	}
+}
+
+func queueTestJobs(t *testing.T, queue *GoJobQueue, queueName string, numJobs int, finished chan<- bool) {
+	// helper function that queues jobs
+
+	for i := 0; i < numJobs; i++ {
+		jobData := &GoJobData{
+			Data:     []byte{'2', '3', '4'},
+			Priority: uint(i % 2),
+			Queue:    queueName,
+			Timeout:  60,
+		}
+		err := queue.AddJob(jobData)
+		if err != nil {
+			t.Errorf("Error adding job " + err.Error())
+		}
+	}
+
+	finished <- true
+}
+
+func reserveTestJobs(t *testing.T, queue *GoJobQueue, queueName string, numJobs int, finished chan<- bool) {
+	// helper function that reserves and deletes jobs
+
+	for i := 0; i < numJobs; i++ {
+		for {
+			nextJob, ok := queue.ReserveJob(queueName)
+			if !ok {
+				time.Sleep(1 * time.Microsecond)
+				continue
+			}
+
+			queue.DeleteJob(nextJob.Id)
+			break
+		}
+	}
+
+	finished <- true
 }
