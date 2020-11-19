@@ -4,12 +4,14 @@ This document outlines the protocol that should be used by clients wishing to us
 
 ## Data Definitions
 
+Please note all integers should be encoded in little-endian format.
+
 * `<string>` - A generic UTF8 encoded string terminated by a null byte.
 * `<queue>` - A `<string>` representing the name of a queue on the server.
 * `<status>` - A `<string>` representing the status of a job.
 * `<id>` - A 64 bit unsigned integer representing the ID of a job in the queue.
 * `<priority>` - A 32 bit unsigned integer representing the priority of a job in the queue.
-* `<ttp>`- (Time To Process) A 32 bit signed int representing the number of seconds after which
+* `<ttp>`- (Time To Process) A 32 bit unsigned int representing the number of seconds after which
     a reserved job will be released back in to the ready state for another worker to reserve.
 * `<data>` - The data for a job. The first 4 bytes of the data should be an unsigned
     integer giving the length of the rest of the data in bytes.

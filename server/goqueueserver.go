@@ -2,8 +2,9 @@ package server
 
 import (
 	"bufio"
+	"fmt"
+	"log"
 	"net"
-	"strconv"
 
 	"github.com/cswilson90/goqueue/queue"
 )
@@ -52,21 +53,62 @@ func (s *GoJobServer) Exit() {
 
 // handleConnection handles a single connection to a client.
 func (s *GoJobServer) handleConnection(conn net.Conn) {
+	defer conn.Close()
+
 	for {
-		buffer, err := bufio.NewReader(conn).ReadBytes('\n')
+		cmdReader := bufio.NewReader(conn)
+
+		cmdString, err := parseCommand(cmdReader)
 		if err != nil {
-			// Client has closed connection
-			conn.Close()
+			log.Println("Error: "+err.Error())
 			return
 		}
 
-		cmdString := string(buffer[:len(buffer)-1])
-		returnMsg := "ERROR"
-		if cmdString == "STATS" {
-			returnMsg = "JOBS "+strconv.Itoa(s.queue.NumJobs())
+		switch cmdString {
+		case "ADD":
+			s.handleAdd(conn, cmdReader)
+		case "CONNECT":
+			conn.Write([]byte("OK\x00"))
+		case "DELETE":
+			s.handleDelete(conn, cmdReader)
+		case "RESERVE":
+			s.handleReserve(conn, cmdReader)
+		default:
+			errorResponse(conn, "Unknown Command "+cmdString)
 		}
-
-		returnMsg += "\n"
-		conn.Write([]byte(returnMsg))
 	}
+}
+
+// handleAdd handles an Add command from the client.
+func (s *GoJobServer) handleAdd(conn net.Conn, cmdReader *bufio.Reader) {
+	//TODO implement
+	conn.Write([]byte("OK\x00"))
+}
+
+// handleDelete handles an Add command from the client.
+func (s *GoJobServer) handleDelete(conn net.Conn, cmdReader *bufio.Reader) {
+	jobID, err := parseUint64(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malformed DELETE command")
+		return
+	}
+
+	err = s.queue.DeleteJob(jobID)
+	if err != nil {
+		errorResponse(conn, fmt.Sprintf("Job %v already deleted", jobID))
+		return
+	}
+
+	conn.Write([]byte("OK\x00"))
+}
+
+// handleReserve handles an Add command from the client.
+func (s *GoJobServer) handleReserve(conn net.Conn, cmdReader *bufio.Reader) {
+	//TODO implement
+	conn.Write([]byte("OK\x00"))
+}
+
+// errorResponse writes an error response back to the client.
+func errorResponse(conn net.Conn, response string) {
+	conn.Write([]byte("ERROR\x00"+response+"\x00"))
 }

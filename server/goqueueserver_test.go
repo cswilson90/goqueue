@@ -39,16 +39,16 @@ func TestGoQueueServer(t *testing.T) {
 
 	// Test repeat requests
 	for i := 0; i < 2; i++ {
-		client.Write([]byte("STATS\n"))
+		client.Write([]byte("CONNECT\x00"))
 
-		buffer, err := bufio.NewReader(client).ReadBytes('\n')
+		buffer, err := bufio.NewReader(client).ReadBytes('\x00')
 		if err != nil {
-			t.Errorf("Failed to stats job from connection")
+			t.Errorf("Failed to get CONNECT response from server")
 		}
 
 		returnString := string(buffer[:len(buffer)-1])
-		if returnString != "JOBS 0" {
-			t.Errorf("Expect response 'JOBS 0' got '"+returnString+"'")
+		if returnString != "OK" {
+			t.Errorf("Expected response 'OK' got '"+returnString+"'")
 		}
 	}
 
