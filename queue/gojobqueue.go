@@ -24,10 +24,10 @@ type GoJobQueue struct {
 type GoJobData struct {
 	Data     []byte
 	Id       uint64
-	Priority uint
+	Priority uint32
 	Queue    string
 	Status   string
-	Timeout  int
+	Timeout  uint32
 }
 
 // NewGoJobQueue creates a new GoJobQueue.

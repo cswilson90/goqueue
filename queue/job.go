@@ -12,10 +12,10 @@ type job struct {
 	queueName string
 
 	mutex    sync.Mutex
-	priority uint
+	priority uint32
 	status   string
 
-	reservationTimeout int
+	reservationTimeout uint32
 	reserveExpires     int64
 
 	data []byte
@@ -25,7 +25,7 @@ type job struct {
 }
 
 // NewJob creates and returns a new Job with the given data.
-func newJob(id uint64, queue string, priority uint, reservationTimeout int, data []byte) *job {
+func newJob(id uint64, queue string, priority uint32, reservationTimeout uint32, data []byte) *job {
 	return &job{
 		id:                 id,
 		priority:           priority,

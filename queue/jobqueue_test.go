@@ -41,7 +41,7 @@ func TestRemovingJobs(t *testing.T) {
 
 	jobs := make([]*job, 0, 20)
 	for i := 1; i <= 20; i++ {
-		newJob := newJob(uint64(i), "queue1", uint(i%3), 60, []byte{'1', '2', '3'})
+		newJob := newJob(uint64(i), "queue1", uint32(i%3), 60, []byte{'1', '2', '3'})
 		jobs = append(jobs, newJob)
 		queue.addJob(newJob)
 	}

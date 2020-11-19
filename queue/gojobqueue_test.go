@@ -84,7 +84,7 @@ func TestSingleGoQueueJob(t *testing.T) {
 func TestMultipleGoQueueJobs(t *testing.T) {
 	goJobQueue := NewGoJobQueue()
 
-	jobPriorites := [6]uint{2, 1, 4, 1, 2, 3}
+	jobPriorites := [6]uint32{2, 1, 4, 1, 2, 3}
 	for i, pri := range jobPriorites {
 		newJob := &GoJobData{
 			Data:     []byte{'2', '3', '4'},
@@ -125,7 +125,7 @@ func TestMultipleGoQueueJobs(t *testing.T) {
 func TestMultipleGoQueueQueues(t *testing.T) {
 	goJobQueue := NewGoJobQueue()
 
-	jobPriorites := [6]uint{2, 1, 1, 4, 2, 3}
+	jobPriorites := [6]uint32{2, 1, 1, 4, 2, 3}
 	for i, pri := range jobPriorites {
 		// Alternate queue names
 		queueName := "queue1"
@@ -211,7 +211,7 @@ func queueTestJobs(t *testing.T, queue *GoJobQueue, queueName string, numJobs in
 	for i := 0; i < numJobs; i++ {
 		jobData := &GoJobData{
 			Data:     []byte{'2', '3', '4'},
-			Priority: uint(i % 2),
+			Priority: uint32(i % 2),
 			Queue:    queueName,
 			Timeout:  60,
 		}

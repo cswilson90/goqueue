@@ -10,7 +10,7 @@ func TestPriorityQueuing(t *testing.T) {
 		t.Error("Expected nil when trying to reserve job from new empty queue")
 	}
 
-	jobPriorites := [6]uint{2, 1, 4, 1, 2, 3}
+	jobPriorites := [6]uint32{2, 1, 4, 1, 2, 3}
 	for i, pri := range jobPriorites {
 		newJob := newJob(uint64(i+1), "queue1", pri, 60, []byte{'1', '2', '3'})
 		queue.addJob(newJob)

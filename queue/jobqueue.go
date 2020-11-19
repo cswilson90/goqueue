@@ -8,7 +8,7 @@ type jobQueue struct {
 	lastJob  *job
 
 	// Queues are organised in a binary tree by priority
-	priority uint
+	priority uint32
 
 	leftQueue  *jobQueue
 	rightQueue *jobQueue
@@ -16,7 +16,7 @@ type jobQueue struct {
 
 // newJobQueue creates and returns a new jobQueue with the given name.
 // A jobQueue's name cannot be changed after it's created.
-func newJobQueue(priority uint) *jobQueue {
+func newJobQueue(priority uint32) *jobQueue {
 	return &jobQueue{
 		priority: priority,
 	}
