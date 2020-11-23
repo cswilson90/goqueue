@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 
@@ -60,7 +61,9 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 
 		cmdString, err := parseCommand(cmdReader)
 		if err != nil {
-			log.Println("Error: "+err.Error())
+			if err != io.EOF {
+				log.Println("Error: "+err.Error())
+			}
 			return
 		}
 
@@ -68,7 +71,7 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 		case "ADD":
 			s.handleAdd(conn, cmdReader)
 		case "CONNECT":
-			conn.Write([]byte("OK\x00"))
+			conn.Write(packString("OK"))
 		case "DELETE":
 			s.handleDelete(conn, cmdReader)
 		case "RESERVE":
@@ -81,15 +84,54 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 
 // handleAdd handles an Add command from the client.
 func (s *GoJobServer) handleAdd(conn net.Conn, cmdReader *bufio.Reader) {
-	//TODO implement
-	conn.Write([]byte("OK\x00"))
+	// ADD<\0><queue><priority><ttp><data>
+	queueName, err := parseString(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malfromed ADD command: failed to parse queue name");
+		return
+	}
+
+	priority, err := parseUint32(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malformed ADD command: failed to parse priority")
+		return
+	}
+
+	ttp, err := parseUint32(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malformed ADD command: failed to parse ttp")
+		return
+	}
+
+	jobData, err := parseJobData(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malformed ADD command: failed to parse job data")
+		return
+	}
+
+	jobObject := &queue.GoJobData{
+        Data:     jobData,
+        Priority: priority,
+        Queue:    queueName,
+        Timeout:  ttp,
+	}
+
+	err = s.queue.AddJob(jobObject)
+	if err != nil {
+		log.Println("Error: "+err.Error())
+		errorResponse(conn, fmt.Sprintf("Error adding new job to queue %v", queueName))
+		return
+	}
+
+	conn.Write(append(packString("ADDED"), packUint64(jobObject.Id)...))
 }
 
 // handleDelete handles an Add command from the client.
 func (s *GoJobServer) handleDelete(conn net.Conn, cmdReader *bufio.Reader) {
+	// DELETE<\0><id>
 	jobID, err := parseUint64(cmdReader)
 	if err != nil {
-		errorResponse(conn, "Malformed DELETE command")
+		errorResponse(conn, "Malformed DELETE command: failed to parse job ID")
 		return
 	}
 
@@ -99,16 +141,16 @@ func (s *GoJobServer) handleDelete(conn net.Conn, cmdReader *bufio.Reader) {
 		return
 	}
 
-	conn.Write([]byte("OK\x00"))
+	conn.Write(packString("OK"))
 }
 
 // handleReserve handles an Add command from the client.
 func (s *GoJobServer) handleReserve(conn net.Conn, cmdReader *bufio.Reader) {
 	//TODO implement
-	conn.Write([]byte("OK\x00"))
+	conn.Write(packString("OK"))
 }
 
 // errorResponse writes an error response back to the client.
 func errorResponse(conn net.Conn, response string) {
-	conn.Write([]byte("ERROR\x00"+response+"\x00"))
+	conn.Write(append(packString("ERROR"), packString(response)...))
 }

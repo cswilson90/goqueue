@@ -39,7 +39,7 @@ The following commands are recognised by the server.
 Adds a job to the queue with the given queue name. The response returns the ID
 of the newly added job.
 
-Client: `ADD<\0><queue><id><priority><ttp><data>`
+Client: `ADD<\0><queue><priority><ttp><data>`
 
 Response: `ADDED<\0><id>`
 

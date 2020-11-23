@@ -30,27 +30,80 @@ func createClient(t * testing.T) net.Conn {
 	return conn
 }
 
-func TestGoQueueServer(t *testing.T) {
+func TestConnect(t *testing.T) {
 	server := createServer(t)
 	go server.Run()
 	defer server.Exit()
 
 	client := createClient(t)
+	defer client.Close()
 
 	// Test repeat requests
 	for i := 0; i < 2; i++ {
 		client.Write([]byte("CONNECT\x00"))
 
-		buffer, err := bufio.NewReader(client).ReadBytes('\x00')
+		cmdReader := bufio.NewReader(client)
+		returnString, err := parseCommand(cmdReader)
 		if err != nil {
 			t.Errorf("Failed to get CONNECT response from server")
 		}
 
-		returnString := string(buffer[:len(buffer)-1])
 		if returnString != "OK" {
 			t.Errorf("Expected response 'OK' got '"+returnString+"'")
 		}
 	}
+}
 
-	client.Close()
+func TestAddAndDelete(t *testing.T) {
+	server := createServer(t)
+	go server.Run()
+	defer server.Exit()
+
+	client := createClient(t)
+	defer client.Close()
+
+	// Add a job
+	request := make([]byte, 0)
+	request = append(request, packString("ADD")...)
+	request = append(request, packString("queue1")...)
+	request = append(request, packUint32(1)...)
+	request = append(request, packUint32(60)...)
+	packedJobData, err := packJobData([]byte{'1', '2', '3'})
+	if err != nil {
+		t.Error(err.Error())
+	}
+	request = append(request, packedJobData...)
+	client.Write(request)
+
+	cmdReader := bufio.NewReader(client)
+	response, err := parseCommand(cmdReader)
+	if err != nil {
+		t.Errorf("Failed to get response when adding a job")
+	}
+	if response != "ADDED" {
+		t.Errorf("Expected response 'ADDED' got '"+response+"'")
+	}
+
+	jobID, err := parseUint64(cmdReader)
+	if err != nil {
+		t.Errorf("Failed to get job ID of added job")
+	}
+	if jobID != 1 {
+		t.Errorf("Expected added job to have ID 1 got %v", jobID)
+	}
+
+	// Delete the job
+	request = make([]byte, 0)
+	request = append(request, packString("DELETE")...)
+	request = append(request, packUint64(jobID)...)
+	client.Write(request)
+
+	returnString, err := parseCommand(cmdReader)
+	if err != nil {
+		t.Errorf("Failed to get DELETE response from server")
+	}
+
+	if returnString != "OK" {
+		t.Errorf("Expected response 'OK' got '"+returnString+"'")
+	}
 }
