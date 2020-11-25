@@ -22,7 +22,7 @@ func createServer(t *testing.T) *GoJobServer {
 }
 
 // createClient is a helper function to create a test connection to the server
-func createClient(t * testing.T) net.Conn {
+func createClient(t *testing.T) net.Conn {
 	conn, err := net.Dial(connType, connHost+":"+connPort)
 	if err != nil {
 		t.Errorf("Failed to create test client")
@@ -49,12 +49,12 @@ func TestConnect(t *testing.T) {
 		}
 
 		if returnString != "OK" {
-			t.Errorf("Expected response 'OK' got '"+returnString+"'")
+			t.Errorf("Expected response 'OK' got '" + returnString + "'")
 		}
 	}
 }
 
-func TestAddAndDelete(t *testing.T) {
+func TestAddReserveAndDelete(t *testing.T) {
 	server := createServer(t)
 	go server.Run()
 	defer server.Exit()
@@ -78,10 +78,10 @@ func TestAddAndDelete(t *testing.T) {
 	cmdReader := bufio.NewReader(client)
 	response, err := parseCommand(cmdReader)
 	if err != nil {
-		t.Errorf("Failed to get response when adding a job")
+		t.Errorf("Failed to get response when adding a job: " + err.Error())
 	}
 	if response != "ADDED" {
-		t.Errorf("Expected response 'ADDED' got '"+response+"'")
+		t.Errorf("Expected response 'ADDED' got '" + response + "'")
 	}
 
 	jobID, err := parseUint64(cmdReader)
@@ -92,6 +92,28 @@ func TestAddAndDelete(t *testing.T) {
 		t.Errorf("Expected added job to have ID 1 got %v", jobID)
 	}
 
+	// Reserve the job
+	request = make([]byte, 0)
+	request = append(request, packString("RESERVE")...)
+	request = append(request, packString("queue1")...)
+	request = append(request, packUint32(0)...)
+	client.Write(request)
+
+	response, err = parseCommand(cmdReader)
+	if err != nil {
+		t.Errorf("Failed to get response when reserving job: " + err.Error())
+	}
+	if response != "RESERVED" {
+		t.Errorf("Expected response RESERVED, got %v", response)
+	}
+	job, err := parseJob(cmdReader)
+	if err != nil {
+		t.Errorf("Error parsing reserved job: " + err.Error())
+	}
+	if job.Id != 1 {
+		t.Errorf("Expected reserved job to have ID 1 got %v", job.Id)
+	}
+
 	// Delete the job
 	request = make([]byte, 0)
 	request = append(request, packString("DELETE")...)
@@ -100,10 +122,10 @@ func TestAddAndDelete(t *testing.T) {
 
 	returnString, err := parseCommand(cmdReader)
 	if err != nil {
-		t.Errorf("Failed to get DELETE response from server")
+		t.Errorf("Failed to get DELETE response from server: " + err.Error())
 	}
 
 	if returnString != "OK" {
-		t.Errorf("Expected response 'OK' got '"+returnString+"'")
+		t.Errorf("Expected response 'OK' got '" + returnString + "'")
 	}
 }

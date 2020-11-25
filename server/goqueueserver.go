@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 
 	"github.com/cswilson90/goqueue/queue"
 )
@@ -19,7 +20,7 @@ type GoJobServer struct {
 
 // NewGoJobServer creates a new GoJobServer which listens on the given hostname and port.
 func NewGoJobServer(host string, port string) (*GoJobServer, error) {
-	address := host+":"+port
+	address := host + ":" + port
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -28,7 +29,7 @@ func NewGoJobServer(host string, port string) (*GoJobServer, error) {
 
 	server := &GoJobServer{
 		server: listener,
-		queue: queue.NewGoJobQueue(),
+		queue:  queue.NewGoJobQueue(),
 	}
 	return server, nil
 }
@@ -62,7 +63,7 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 		cmdString, err := parseCommand(cmdReader)
 		if err != nil {
 			if err != io.EOF {
-				log.Println("Error: "+err.Error())
+				log.Println("Error: " + err.Error())
 			}
 			return
 		}
@@ -87,7 +88,7 @@ func (s *GoJobServer) handleAdd(conn net.Conn, cmdReader *bufio.Reader) {
 	// ADD<\0><queue><priority><ttp><data>
 	queueName, err := parseString(cmdReader)
 	if err != nil {
-		errorResponse(conn, "Malfromed ADD command: failed to parse queue name");
+		errorResponse(conn, "Malfromed ADD command: failed to parse queue name")
 		return
 	}
 
@@ -110,15 +111,15 @@ func (s *GoJobServer) handleAdd(conn net.Conn, cmdReader *bufio.Reader) {
 	}
 
 	jobObject := &queue.GoJobData{
-        Data:     jobData,
-        Priority: priority,
-        Queue:    queueName,
-        Timeout:  ttp,
+		Data:     jobData,
+		Priority: priority,
+		Queue:    queueName,
+		Timeout:  ttp,
 	}
 
 	err = s.queue.AddJob(jobObject)
 	if err != nil {
-		log.Println("Error: "+err.Error())
+		log.Println("Error: " + err.Error())
 		errorResponse(conn, fmt.Sprintf("Error adding new job to queue %v", queueName))
 		return
 	}
@@ -146,8 +147,42 @@ func (s *GoJobServer) handleDelete(conn net.Conn, cmdReader *bufio.Reader) {
 
 // handleReserve handles an Add command from the client.
 func (s *GoJobServer) handleReserve(conn net.Conn, cmdReader *bufio.Reader) {
-	//TODO implement
-	conn.Write(packString("OK"))
+	// RESERVE<\0><queue><timeout>
+	queueName, err := parseString(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malfromed RESERVE command: failed to parse queue name")
+		return
+	}
+
+	timeout, err := parseUint32(cmdReader)
+	if err != nil {
+		errorResponse(conn, "Malformed ADD command: failed to parse timeout")
+		return
+	}
+
+	// Keep trying to reserve a job until we hit a timeout (if there is one)
+	start := time.Now()
+	for {
+		job, ok := s.queue.ReserveJob(queueName)
+		if ok {
+			packedJob, err := packJob(job)
+			if err != nil {
+				log.Println("Error: " + err.Error())
+				errorResponse(conn, "Failed to reserve job: internal error")
+				return
+			}
+			conn.Write(append(packString("RESERVED"), packedJob...))
+			return
+		}
+
+		if timeout != 0 {
+			elapsed := time.Now().Sub(start)
+			if elapsed.Seconds() >= float64(timeout) {
+				conn.Write(packString("TIMEOUT"))
+				return
+			}
+		}
+	}
 }
 
 // errorResponse writes an error response back to the client.

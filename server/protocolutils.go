@@ -7,6 +7,8 @@ import (
 	"io"
 	"math"
 	"regexp"
+
+	"github.com/cswilson90/goqueue/queue"
 )
 
 var isUpperCaseString = regexp.MustCompile(`^[A-Z]+$`).MatchString
@@ -40,7 +42,7 @@ func parseStringAndValidate(cmdReader *bufio.Reader, validate func(string) bool)
 
 // packString converts a string to a byte slice to send back to the client.
 func packString(data string) []byte {
-	return []byte(data+"\x00")
+	return []byte(data + "\x00")
 }
 
 // parseUint64 parses an uint64 from the client.
@@ -106,4 +108,62 @@ func packJobData(jobData []byte) ([]byte, error) {
 
 	dataLength := packUint32(uint32(len(jobData)))
 	return append(dataLength, jobData...), nil
+}
+
+// parseJob parses a job and it's metadata from the client.
+func parseJob(cmdReader *bufio.Reader) (*queue.GoJobData, error) {
+	id, err := parseUint64(cmdReader)
+	if err != nil {
+		return nil, err
+	}
+
+	priority, err := parseUint32(cmdReader)
+	if err != nil {
+		return nil, err
+	}
+
+	ttp, err := parseUint32(cmdReader)
+	if err != nil {
+		return nil, err
+	}
+
+	status, err := parseString(cmdReader)
+	if err != nil {
+		return nil, err
+	}
+
+	jobData, err := parseJobData(cmdReader)
+	if err != nil {
+		return nil, err
+	}
+
+	return &queue.GoJobData{
+		Id:       id,
+		Priority: priority,
+		Timeout:  ttp,
+		Status:   status,
+		Data:     jobData,
+	}, nil
+}
+
+// packJob packs all the data and metadata for a job into a byte array to be sent to the client.
+func packJob(job *queue.GoJobData) ([]byte, error) {
+	allData := make([]byte, 0)
+	// Job ID
+	allData = append(allData, packUint64(job.Id)...)
+	// Priority
+	allData = append(allData, packUint32(job.Priority)...)
+	// TTP
+	allData = append(allData, packUint32(job.Timeout)...)
+	// Status
+	allData = append(allData, packString(job.Status)...)
+
+	// Job Data
+	jobData, err := packJobData(job.Data)
+	if err != nil {
+		return nil, err
+	}
+	allData = append(allData, jobData...)
+
+	return allData, nil
 }

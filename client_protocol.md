@@ -17,6 +17,7 @@ Please note all integers should be encoded in little-endian format.
     integer giving the length of the rest of the data in bytes.
 * `<timeout>` - A 32 bit unsigned int representing the number of seconds to wait before giving
     up on a command. A timeout of 0 sets an unlimited timeout.
+* `<job>` - All the metadata and data for a job, shorthand for `<id><priority><ttp><status><data>`.
 * `<\0>` - A null byte.
 
 ## Error Responses
@@ -63,11 +64,12 @@ Response: `OK<\0>`
 
 Reserves a job from the queue. If successful the response includes all data for the
 job. If the timeout expires before a job can be reserved then the server responds
-with a timeout response.
+with a timeout response. If no timeout it set the server waits forever for a job
+to become available before responding.
 
 Client `RESERVE</0><queue><timeout>`
 
-Successful Response: `RESERVED<\0><id><priority><ttp><status><data>`
+Successful Response: `RESERVED<\0><job>`
 
 Timeout Response: `TIMEOUT<\0>`
 
