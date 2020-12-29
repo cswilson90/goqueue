@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"net"
 	"testing"
+
+	"github.com/cswilson90/goqueue/internal/data"
 )
 
 const (
@@ -43,7 +45,7 @@ func TestConnect(t *testing.T) {
 		client.Write([]byte("CONNECT\x00"))
 
 		cmdReader := bufio.NewReader(client)
-		returnString, err := parseCommand(cmdReader)
+		returnString, err := data.ParseCommand(cmdReader)
 		if err != nil {
 			t.Errorf("Failed to get CONNECT response from server")
 		}
@@ -64,11 +66,11 @@ func TestAddReserveAndDelete(t *testing.T) {
 
 	// Add a job
 	request := make([]byte, 0)
-	request = append(request, packString("ADD")...)
-	request = append(request, packString("queue1")...)
-	request = append(request, packUint32(1)...)
-	request = append(request, packUint32(60)...)
-	packedJobData, err := packJobData([]byte{'1', '2', '3'})
+	request = append(request, data.PackString("ADD")...)
+	request = append(request, data.PackString("queue1")...)
+	request = append(request, data.PackUint32(1)...)
+	request = append(request, data.PackUint32(60)...)
+	packedJobData, err := data.PackJobData([]byte{'1', '2', '3'})
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -76,7 +78,7 @@ func TestAddReserveAndDelete(t *testing.T) {
 	client.Write(request)
 
 	cmdReader := bufio.NewReader(client)
-	response, err := parseCommand(cmdReader)
+	response, err := data.ParseCommand(cmdReader)
 	if err != nil {
 		t.Errorf("Failed to get response when adding a job: " + err.Error())
 	}
@@ -84,7 +86,7 @@ func TestAddReserveAndDelete(t *testing.T) {
 		t.Errorf("Expected response 'ADDED' got '" + response + "'")
 	}
 
-	jobID, err := parseUint64(cmdReader)
+	jobID, err := data.ParseUint64(cmdReader)
 	if err != nil {
 		t.Errorf("Failed to get job ID of added job")
 	}
@@ -94,19 +96,19 @@ func TestAddReserveAndDelete(t *testing.T) {
 
 	// Reserve the job
 	request = make([]byte, 0)
-	request = append(request, packString("RESERVE")...)
-	request = append(request, packString("queue1")...)
-	request = append(request, packUint32(0)...)
+	request = append(request, data.PackString("RESERVE")...)
+	request = append(request, data.PackString("queue1")...)
+	request = append(request, data.PackUint32(0)...)
 	client.Write(request)
 
-	response, err = parseCommand(cmdReader)
+	response, err = data.ParseCommand(cmdReader)
 	if err != nil {
 		t.Errorf("Failed to get response when reserving job: " + err.Error())
 	}
 	if response != "RESERVED" {
 		t.Errorf("Expected response RESERVED, got %v", response)
 	}
-	job, err := parseJob(cmdReader)
+	job, err := data.ParseJob(cmdReader)
 	if err != nil {
 		t.Errorf("Error parsing reserved job: " + err.Error())
 	}
@@ -116,11 +118,11 @@ func TestAddReserveAndDelete(t *testing.T) {
 
 	// Delete the job
 	request = make([]byte, 0)
-	request = append(request, packString("DELETE")...)
-	request = append(request, packUint64(jobID)...)
+	request = append(request, data.PackString("DELETE")...)
+	request = append(request, data.PackUint64(jobID)...)
 	client.Write(request)
 
-	returnString, err := parseCommand(cmdReader)
+	returnString, err := data.ParseCommand(cmdReader)
 	if err != nil {
 		t.Errorf("Failed to get DELETE response from server: " + err.Error())
 	}

@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/cswilson90/goqueue/internal/data"
 	"github.com/cswilson90/goqueue/queue"
 )
 
@@ -60,7 +61,7 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 	for {
 		cmdReader := bufio.NewReader(conn)
 
-		cmdString, err := parseCommand(cmdReader)
+		cmdString, err := data.ParseCommand(cmdReader)
 		if err != nil {
 			if err != io.EOF {
 				log.Println("Error: " + err.Error())
@@ -72,7 +73,7 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 		case "ADD":
 			s.handleAdd(conn, cmdReader)
 		case "CONNECT":
-			conn.Write(packString("OK"))
+			conn.Write(data.PackString("OK"))
 		case "DELETE":
 			s.handleDelete(conn, cmdReader)
 		case "RESERVE":
@@ -86,25 +87,25 @@ func (s *GoJobServer) handleConnection(conn net.Conn) {
 // handleAdd handles an Add command from the client.
 func (s *GoJobServer) handleAdd(conn net.Conn, cmdReader *bufio.Reader) {
 	// ADD<\0><queue><priority><ttp><data>
-	queueName, err := parseString(cmdReader)
+	queueName, err := data.ParseString(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malfromed ADD command: failed to parse queue name")
 		return
 	}
 
-	priority, err := parseUint32(cmdReader)
+	priority, err := data.ParseUint32(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malformed ADD command: failed to parse priority")
 		return
 	}
 
-	ttp, err := parseUint32(cmdReader)
+	ttp, err := data.ParseUint32(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malformed ADD command: failed to parse ttp")
 		return
 	}
 
-	jobData, err := parseJobData(cmdReader)
+	jobData, err := data.ParseJobData(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malformed ADD command: failed to parse job data")
 		return
@@ -124,13 +125,13 @@ func (s *GoJobServer) handleAdd(conn net.Conn, cmdReader *bufio.Reader) {
 		return
 	}
 
-	conn.Write(append(packString("ADDED"), packUint64(jobObject.Id)...))
+	conn.Write(append(data.PackString("ADDED"), data.PackUint64(jobObject.Id)...))
 }
 
 // handleDelete handles an Add command from the client.
 func (s *GoJobServer) handleDelete(conn net.Conn, cmdReader *bufio.Reader) {
 	// DELETE<\0><id>
-	jobID, err := parseUint64(cmdReader)
+	jobID, err := data.ParseUint64(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malformed DELETE command: failed to parse job ID")
 		return
@@ -142,19 +143,19 @@ func (s *GoJobServer) handleDelete(conn net.Conn, cmdReader *bufio.Reader) {
 		return
 	}
 
-	conn.Write(packString("OK"))
+	conn.Write(data.PackString("OK"))
 }
 
 // handleReserve handles an Add command from the client.
 func (s *GoJobServer) handleReserve(conn net.Conn, cmdReader *bufio.Reader) {
 	// RESERVE<\0><queue><timeout>
-	queueName, err := parseString(cmdReader)
+	queueName, err := data.ParseString(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malfromed RESERVE command: failed to parse queue name")
 		return
 	}
 
-	timeout, err := parseUint32(cmdReader)
+	timeout, err := data.ParseUint32(cmdReader)
 	if err != nil {
 		errorResponse(conn, "Malformed ADD command: failed to parse timeout")
 		return
@@ -165,20 +166,20 @@ func (s *GoJobServer) handleReserve(conn net.Conn, cmdReader *bufio.Reader) {
 	for {
 		job, ok := s.queue.ReserveJob(queueName)
 		if ok {
-			packedJob, err := packJob(job)
+			packedJob, err := data.PackJob(job)
 			if err != nil {
 				log.Println("Error: " + err.Error())
 				errorResponse(conn, "Failed to reserve job: internal error")
 				return
 			}
-			conn.Write(append(packString("RESERVED"), packedJob...))
+			conn.Write(append(data.PackString("RESERVED"), packedJob...))
 			return
 		}
 
 		if timeout != 0 {
 			elapsed := time.Now().Sub(start)
 			if elapsed.Seconds() >= float64(timeout) {
-				conn.Write(packString("TIMEOUT"))
+				conn.Write(data.PackString("TIMEOUT"))
 				return
 			}
 		}
@@ -187,5 +188,5 @@ func (s *GoJobServer) handleReserve(conn net.Conn, cmdReader *bufio.Reader) {
 
 // errorResponse writes an error response back to the client.
 func errorResponse(conn net.Conn, response string) {
-	conn.Write(append(packString("ERROR"), packString(response)...))
+	conn.Write(append(data.PackString("ERROR"), data.PackString(response)...))
 }
