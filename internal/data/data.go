@@ -103,7 +103,7 @@ func ParseJobData(cmdReader *bufio.Reader) ([]byte, error) {
 // PackJobData packs job data into a byte array that can be sent to the client.
 func PackJobData(jobData []byte) ([]byte, error) {
 	if len(jobData) > math.MaxUint32 {
-		return nil, fmt.Errorf("Can't pack data with length greater than MaxUint32")
+		return nil, fmt.Errorf("Job data length greater than MaxUint32")
 	}
 
 	dataLength := PackUint32(uint32(len(jobData)))

@@ -35,5 +35,5 @@ func TestClientConnect(t *testing.T) {
 	defer server.Exit()
 
 	client := createClient(t)
-	client.AddToQueue("add-queue")
+	client.AddQueue("add-queue")
 }
