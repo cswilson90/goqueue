@@ -8,7 +8,7 @@ import (
 	"math"
 	"regexp"
 
-	"github.com/cswilson90/goqueue/queue"
+	"github.com/cswilson90/goqueue/internal/queue"
 )
 
 var isUpperCaseString = regexp.MustCompile(`^[A-Z]+$`).MatchString

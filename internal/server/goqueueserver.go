@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cswilson90/goqueue/internal/data"
-	"github.com/cswilson90/goqueue/queue"
+	"github.com/cswilson90/goqueue/internal/queue"
 )
 
 // A GoJobServer is a server which handles requests to a GoJobQueue.
