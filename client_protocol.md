@@ -64,7 +64,7 @@ Response: `OK<\0>`
 
 Reserves a job from the queue. If successful the response includes all data for the
 job. If the timeout expires before a job can be reserved then the server responds
-with a timeout response. If no timeout it set the server waits forever for a job
+with a timeout response. If the timeout is set to 0 the server waits forever for a job
 to become available before responding.
 
 Client `RESERVE</0><queue><timeout>`

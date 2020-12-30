@@ -3,6 +3,8 @@ package client
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/cswilson90/goqueue/internal/server"
 )
 
@@ -34,6 +36,38 @@ func TestClientConnect(t *testing.T) {
 	go server.Run()
 	defer server.Exit()
 
+	createClient(t)
+}
+
+func TestClient(t *testing.T) {
+	assert := assert.New(t)
+
+	server := createServer(t)
+	go server.Run()
+	defer server.Exit()
+
 	client := createClient(t)
-	client.AddQueue("add-queue")
+	client.AddQueue("queue-1")
+	client.ReserveQueue("queue-1")
+
+	id, err := client.AddJob(1, 60, []byte{'1', '2', '3'})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	assert.Equal(uint64(1), id, "Incorrect added job ID")
+
+	job, err := client.ReserveJob(1)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	assert.Equal(uint64(1), job.Id, "Incorrect reserved job ID")
+
+	err = client.DeleteJob(job)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Check timeout
+	job, err = client.ReserveJob(1)
+	assert.Equal(TimeoutError, err, "Expected timeout error")
 }
